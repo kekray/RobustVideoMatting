@@ -1,7 +1,7 @@
 ## Update
 项目来自 [RobustVideoMatting](https://github.com/PeterL1n/RobustVideoMatting)。
 
-在此基础上, 我用openCV制作了实时抠像的[例子](inference_camera.py)，并且增加了自定义背景图像的选项, See [inference.py](inference.py) `output-background` 。
+在此基础上, 我用openCV制作了实时抠像的[例子](inference_camera.py)，并且增加了自定义背景图像的选项, 详见 [inference.py](inference.py) `output-background` 参数。
 
 你可以更改[inference_video](inference_video.py)中的参数开始视频抠像。
 
