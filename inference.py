@@ -1,31 +1,37 @@
 """
 python inference.py \
-    --variant mobilenetv3 \
-    --checkpoint "CHECKPOINT" \
-    --device cuda \
-    --input-source "input.mp4" \
-    --output-type video \
-    --output-composition "composition.mp4" \
-    --output-alpha "alpha.mp4" \
-    --output-foreground "foreground.mp4" \
+    --variant "mobilenetv3" \
+    --checkpoint "checkpoint/rvm_mobilenetv3.pth" \
+    --device "cuda" \
+    --input-source "video/input.mp4" \
+    --output-type "video" \
+    --output-background "green" \
+    --output-composition "video/composition.mp4" \
+    --output-alpha "video/alpha.mp4" \
+    --output-foreground "video/foreground.mp4" \
     --output-video-mbps 4 \
-    --seq-chunk 1
+    --seq-chunk 1 \
+    --num-workers 1
 """
 
+import argparse
 import torch
 import os
+from PIL import Image
+from model import MattingNetwork
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from typing import Optional, Tuple
 from tqdm.auto import tqdm
-
 from inference_utils import VideoReader, VideoWriter, ImageSequenceReader, ImageSequenceWriter
+
 
 def convert_video(model,
                   input_source: str,
                   input_resize: Optional[Tuple[int, int]] = None,
                   downsample_ratio: Optional[float] = None,
                   output_type: str = 'video',
+                  output_background: Optional[str] = 'default',
                   output_composition: Optional[str] = None,
                   output_alpha: Optional[str] = None,
                   output_foreground: Optional[str] = None,
@@ -42,6 +48,7 @@ def convert_video(model,
         input_resize: If provided, the input are first resized to (w, h).
         downsample_ratio: The model's downsample_ratio hyperparameter. If not provided, model automatically set one.
         output_type: Options: ["video", "png_sequence"].
+        output_background: Options: ["default", "green", "white", "image"].
         output_composition:
             The composition output path. File path if output_type == 'video'. Directory path if output_type == 'png_sequence'.
             If output_type == 'video', the composition has green screen background.
@@ -58,10 +65,11 @@ def convert_video(model,
     assert downsample_ratio is None or (downsample_ratio > 0 and downsample_ratio <= 1), 'Downsample ratio must be between 0 (exclusive) and 1 (inclusive).'
     assert any([output_composition, output_alpha, output_foreground]), 'Must provide at least one output.'
     assert output_type in ['video', 'png_sequence'], 'Only support "video" and "png_sequence" output modes.'
+    assert output_background in ['default', 'green', 'white', 'image'], 'Support "default" "green" "white" and "image" backgrounds. "video" default is green, "png_sequence" default is transparent.'
     assert seq_chunk >= 1, 'Sequence chunk must be >= 1'
     assert num_workers >= 0, 'Number of workers must be >= 0'
     assert output_video_mbps == None or output_type == 'video', 'Mbps is not available for png_sequence output.'
-    
+
     # Initialize transform
     if input_resize is not None:
         transform = transforms.Compose([
@@ -111,20 +119,26 @@ def convert_video(model,
         param = next(model.parameters())
         dtype = param.dtype
         device = param.device
-    
-    if (output_composition is not None) and (output_type == 'video'):
-        bgr = torch.tensor([120, 255, 155], device=device, dtype=dtype).div(255).view(1, 1, 3, 1, 1)
-    
+
+    if output_composition is not None:
+        if output_background == 'image':
+            bgr = None
+        elif output_background == 'default' and output_type == 'png_sequence':
+            bgr = None
+        elif output_background == 'white':
+            bgr = torch.tensor([255, 255, 255], device=device, dtype=dtype).div(255).view(1, 1, 3, 1, 1)  # white background
+        else:
+            bgr = torch.tensor([120, 255, 155], device=device, dtype=dtype).div(255).view(1, 1, 3, 1, 1)  # green background
+
     try:
         with torch.no_grad():
             bar = tqdm(total=len(source), disable=not progress, dynamic_ncols=True)
             rec = [None] * 4
             for src in reader:
-
                 if downsample_ratio is None:
                     downsample_ratio = auto_downsample_ratio(*src.shape[2:])
 
-                src = src.to(device, dtype, non_blocking=True).unsqueeze(0) # [B, T, C, H, W]
+                src = src.to(device, dtype, non_blocking=True).unsqueeze(0)  # [B, T, C, H, W]
                 fgr, pha, *rec = model(src, *rec, downsample_ratio)
 
                 if output_foreground is not None:
@@ -132,13 +146,24 @@ def convert_video(model,
                 if output_alpha is not None:
                     writer_pha.write(pha[0])
                 if output_composition is not None:
-                    if output_type == 'video':
+                    if output_background == 'image':
+                        # print(src.shape)
+                        h, w = src.shape[3:]
+                        loader = transforms.Compose([
+                            transforms.Resize(size=(h, w)),
+                            transforms.ToTensor()
+                        ])
+                        img = Image.open("work/background/background1.jpg")
+                        bgr = loader(img).to(device, dtype, non_blocking=True)
                         com = fgr * pha + bgr * (1 - pha)
-                    else:
+                    elif output_background == 'default' and output_type == 'png_sequence':
+                        # transparent
                         fgr = fgr * pha.gt(0)
                         com = torch.cat([fgr, pha], dim=-3)
+                    else:
+                        com = fgr * pha + bgr * (1 - pha)
+
                     writer_com.write(com[0])
-                
                 bar.update(src.size(1))
 
     finally:
@@ -168,11 +193,9 @@ class Converter:
     
     def convert(self, *args, **kwargs):
         convert_video(self.model, device=self.device, dtype=torch.float32, *args, **kwargs)
-    
+
+
 if __name__ == '__main__':
-    import argparse
-    from model import MattingNetwork
-    
     parser = argparse.ArgumentParser()
     parser.add_argument('--variant', type=str, required=True, choices=['mobilenetv3', 'resnet50'])
     parser.add_argument('--checkpoint', type=str, required=True)
@@ -184,18 +207,20 @@ if __name__ == '__main__':
     parser.add_argument('--output-alpha', type=str)
     parser.add_argument('--output-foreground', type=str)
     parser.add_argument('--output-type', type=str, required=True, choices=['video', 'png_sequence'])
+    parser.add_argument('--output-background', type=str, choices=['default', 'green', 'white', 'image'])
     parser.add_argument('--output-video-mbps', type=int, default=1)
     parser.add_argument('--seq-chunk', type=int, default=1)
     parser.add_argument('--num-workers', type=int, default=0)
     parser.add_argument('--disable-progress', action='store_true')
     args = parser.parse_args()
-    
+
     converter = Converter(args.variant, args.checkpoint, args.device)
     converter.convert(
         input_source=args.input_source,
         input_resize=args.input_resize,
         downsample_ratio=args.downsample_ratio,
         output_type=args.output_type,
+        output_background=args.output_background,
         output_composition=args.output_composition,
         output_alpha=args.output_alpha,
         output_foreground=args.output_foreground,
@@ -204,5 +229,3 @@ if __name__ == '__main__':
         num_workers=args.num_workers,
         progress=not args.disable_progress
     )
-    
-    
