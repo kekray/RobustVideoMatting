@@ -1,7 +1,7 @@
 ## Update
 This repository forked from [RobustVideoMatting](https://github.com/PeterL1n/RobustVideoMatting).
 
-On this basis, I build a real-time video matting [demo](https://github.com/jackhanyuan/RobustVideoMatting/blob/master/inference_camera.py) use openCV and add the option of customizing the background, See [inference](https://github.com/jackhanyuan/RobustVideoMatting/blob/master/inference.py) `output-background`.
+On this basis, I build a real-time video matting [demo](https://github.com/jackhanyuan/RobustVideoMatting/blob/master/inference_camera.py) use openCV and add the option of customizing the background, See [inference](https://github.com/jackhanyuan/RobustVideoMatting/blob/master/inference.py) `output-background` parameter.
 
 For video matting demo, you can start from [inference_video](https://github.com/jackhanyuan/RobustVideoMatting/blob/master/inference_video.py).
 
