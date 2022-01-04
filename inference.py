@@ -68,7 +68,6 @@ def convert_video(model,
     assert output_background in ['default', 'green', 'white', 'image'], 'Support "default" "green" "white" and "image" backgrounds. "video" default is green, "png_sequence" default is transparent.'
     assert seq_chunk >= 1, 'Sequence chunk must be >= 1'
     assert num_workers >= 0, 'Number of workers must be >= 0'
-    assert output_video_mbps == None or output_type == 'video', 'Mbps is not available for png_sequence output.'
 
     # Initialize transform
     if input_resize is not None:
