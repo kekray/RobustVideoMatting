@@ -27,7 +27,8 @@ if __name__ == '__main__':
 		output_foreground="work/video/fgr.avi",      # [可选项] 输出前景预测
 		output_video_mbps=4,                         # 若导出视频，提供视频码率
 		downsample_ratio=None,                       # 下采样比，可根据具体视频调节，或 None 自动下采样至 512px
-		seq_chunk=1,                                 # 设置多帧并行计算
+		require_audio=True,                          # 如果输出视频，是否保留原音频
+        seq_chunk=1,                                 # 设置多帧并行计算
 		progress=True,                               # 显示进度条
 	)
 

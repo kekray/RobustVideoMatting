@@ -14,6 +14,7 @@ python inference.py \
     --num-workers 1
 """
 
+import av
 import argparse
 import torch
 import os
@@ -23,7 +24,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from typing import Optional, Tuple
 from tqdm.auto import tqdm
-from inference_utils import VideoReader, VideoWriter, ImageSequenceReader, ImageSequenceWriter
+from inference_utils import VideoReader, VideoWriter, ImageSequenceReader, ImageSequenceWriter, AudioVideoWriter
 
 
 def convert_video(model,
@@ -36,12 +37,13 @@ def convert_video(model,
                   output_alpha: Optional[str] = None,
                   output_foreground: Optional[str] = None,
                   output_video_mbps: Optional[float] = None,
+                  require_audio: bool = True,
                   seq_chunk: int = 1,
                   num_workers: int = 0,
                   progress: bool = True,
                   device: Optional[str] = None,
                   dtype: Optional[torch.dtype] = None):
-    
+
     """
     Args:
         input_source:A video file, or an image sequence directory. Images must be sorted in accending order, support png and jpg.
@@ -55,13 +57,14 @@ def convert_video(model,
             If output_type == 'png_sequence'. the composition is RGBA png images.
         output_alpha: The alpha output from the model.
         output_foreground: The foreground output from the model.
+        require_audio: Keep audio from the input video.
         seq_chunk: Number of frames to process at once. Increase it for better parallelism.
         num_workers: PyTorch's DataLoader workers. Only use >0 for image input.
         progress: Show progress bar.
         device: Only need to manually provide if model is a TorchScript freezed model.
         dtype: Only need to manually provide if model is a TorchScript freezed model.
     """
-    
+
     assert downsample_ratio is None or (downsample_ratio > 0 and downsample_ratio <= 1), 'Downsample ratio must be between 0 (exclusive) and 1 (inclusive).'
     assert any([output_composition, output_alpha, output_foreground]), 'Must provide at least one output.'
     assert output_type in ['video', 'png_sequence'], 'Only support "video" and "png_sequence" output modes.'
@@ -84,21 +87,39 @@ def convert_video(model,
     else:
         source = ImageSequenceReader(input_source, transform)
     reader = DataLoader(source, batch_size=seq_chunk, pin_memory=True, num_workers=num_workers)
-    
+
+    if output_type == 'video' and require_audio and os.path.isfile(input_source):
+        try:
+            container = av.open(input_source)
+            if container.streams.get(audio=0):
+                audio_source = container.streams.get(audio=0)[0]
+        except:
+            audio_source = None
+
     # Initialize writers
     if output_type == 'video':
         frame_rate = source.frame_rate if isinstance(source, VideoReader) else 30
         output_video_mbps = 1 if output_video_mbps is None else output_video_mbps
-        if output_composition is not None:
-            writer_com = VideoWriter(
-                path=output_composition,
-                frame_rate=frame_rate,
-                bit_rate=int(output_video_mbps * 1000000))
+        if require_audio and audio_source:
+            if output_composition is not None:
+                writer_com = AudioVideoWriter(
+                    path=output_composition,
+                    frame_rate=frame_rate,
+                    audio_stream=audio_source,
+                    bit_rate=int(output_video_mbps * 1000000))
+        else:
+            if output_composition is not None:
+                writer_com = VideoWriter(
+                    path=output_composition,
+                    frame_rate=frame_rate,
+                    bit_rate=int(output_video_mbps * 1000000))
+
         if output_alpha is not None:
             writer_pha = VideoWriter(
                 path=output_alpha,
                 frame_rate=frame_rate,
                 bit_rate=int(output_video_mbps * 1000000))
+
         if output_foreground is not None:
             writer_fgr = VideoWriter(
                 path=output_foreground,
@@ -189,7 +210,7 @@ class Converter:
         self.model = torch.jit.script(self.model)
         self.model = torch.jit.freeze(self.model)
         self.device = device
-    
+
     def convert(self, *args, **kwargs):
         convert_video(self.model, device=self.device, dtype=torch.float32, *args, **kwargs)
 
@@ -208,6 +229,7 @@ if __name__ == '__main__':
     parser.add_argument('--output-type', type=str, required=True, choices=['video', 'png_sequence'])
     parser.add_argument('--output-background', type=str, choices=['default', 'green', 'white', 'image'])
     parser.add_argument('--output-video-mbps', type=int, default=1)
+    parser.add_argument('--require-audio', type=bool, default=True)
     parser.add_argument('--seq-chunk', type=int, default=1)
     parser.add_argument('--num-workers', type=int, default=0)
     parser.add_argument('--disable-progress', action='store_true')
@@ -224,6 +246,7 @@ if __name__ == '__main__':
         output_alpha=args.output_alpha,
         output_foreground=args.output_foreground,
         output_video_mbps=args.output_video_mbps,
+        require_audio=args.require_audio,
         seq_chunk=args.seq_chunk,
         num_workers=args.num_workers,
         progress=not args.disable_progress

@@ -40,7 +40,7 @@ class VideoWriter:
         self.stream.width = frames.size(3)
         self.stream.height = frames.size(2)
         if frames.size(1) == 1:
-            frames = frames.repeat(1, 3, 1, 1) # convert grayscale to RGB
+            frames = frames.repeat(1, 3, 1, 1)  # convert grayscale to RGB
         frames = frames.mul(255).byte().cpu().permute(0, 2, 3, 1).numpy()
         for t in range(frames.shape[0]):
             frame = frames[t]
@@ -50,6 +50,29 @@ class VideoWriter:
     def close(self):
         self.container.mux(self.stream.encode())
         self.container.close()
+
+
+class AudioVideoWriter(VideoWriter):
+    def __init__(self, path, frame_rate, audio_stream=None, bit_rate=1000000):
+        super(AudioVideoWriter, self).__init__(path=path, frame_rate=frame_rate, bit_rate=bit_rate)
+        self.source_audio_stream = audio_stream
+        self.output_audio_stream = self.container.add_stream(
+            codec_name=self.source_audio_stream.codec_context.codec.name,
+            rate=self.source_audio_stream.rate,
+        )
+
+    def remux_audio(self):
+        input_audio_container = self.source_audio_stream.container
+        for packet in input_audio_container.demux(self.source_audio_stream):
+            if packet.dts is None:
+                continue
+            packet.stream = self.output_audio_stream
+            self.container.mux(packet)
+
+    def close(self):
+        self.remux_audio()
+        self.container.mux(self.output_audio_stream.encode())
+        super(AudioVideoWriter, self).close()
 
 
 class ImageSequenceReader(Dataset):
@@ -85,4 +108,3 @@ class ImageSequenceWriter:
             
     def close(self):
         pass
-        
