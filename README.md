@@ -5,7 +5,7 @@ For video matting demo, you can start from [inference_video](https://github.com/
 
 [Jan 05 2022] Support audio stream, See [inference](https://github.com/jackhanyuan/RobustVideoMatting/blob/master/inference.py) `require_audio` parameter.
 
-[Sep 28 2021] Support real-time video matting [demo](https://github.com/jackhanyuan/RobustVideoMatting/blob/master/inference_camera.py) and add the option of customizing the background, See [inference](https://github.com/jackhanyuan/RobustVideoMatting/blob/master/inference.py) `output_background` parameter.
+[Sep 28 2021] Support real-time video matting with custom background, [demo](https://github.com/jackhanyuan/RobustVideoMatting/blob/master/inference_camera.py), See [inference](https://github.com/jackhanyuan/RobustVideoMatting/blob/master/inference.py) `output_background` parameter.
 
 
 ---

@@ -3,10 +3,9 @@
 
 运行[inference_video](https://github.com/jackhanyuan/RobustVideoMatting/blob/master/inference_video.py)开始视频抠像。
 
-
 [Jan 05 2022] 支持保留原视频中的音频流，详见 [inference](https://github.com/jackhanyuan/RobustVideoMatting/blob/master/inference.py) 中 `require_audio` 参数.
 
-[Sep 28 2021] 支持实时抠像，[例子](https://github.com/jackhanyuan/RobustVideoMatting/blob/master/inference_camera.py)，并且增加了自定义背景图像的选项, 详见 [inference.py](https://github.com/jackhanyuan/RobustVideoMatting/blob/master/inference.py) `output-background` 参数。
+[Sep 28 2021] 支持实时抠像，[例子](https://github.com/jackhanyuan/RobustVideoMatting/blob/master/inference_camera.py)，并且增加了自定义背景图像的选项，详见 [inference.py](https://github.com/jackhanyuan/RobustVideoMatting/blob/master/inference.py) `output-background` 参数。
 
 
 ---
