@@ -176,9 +176,10 @@ def convert_video(model,
                             transforms.ToTensor()
                         ])
                         if output_background_image is not None:
-                            img = Image.open(output_background_image)
+                            img = Image.open(output_background_image).convert('RGB')
                         else:
                             img = Image.open("work/background/background1.jpg")
+                        
                         bgr = loader(img).to(device, dtype, non_blocking=True)
                         com = fgr * pha + bgr * (1 - pha)
                     elif output_background == 'default' and output_type == 'png_sequence':
