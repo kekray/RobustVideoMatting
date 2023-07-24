@@ -23,6 +23,7 @@ if __name__ == '__main__':
 		output_type='video',                         # 可选 "video"（视频）或 "png_sequence"（PNG 序列）
 		output_background='image',                   # [可选项] 定义输出视频或图片序列的背景, 默认"default", 可选 "green", "white", "image"
 		output_composition='work/video/output.avi',  # 若导出视频，提供文件路径。若导出 PNG 序列，提供文件夹路径
+		output_background_image=None,				 # background image path if you want your own background
 		output_alpha="work/video/pha.avi",           # [可选项] 输出透明度预测
 		output_foreground="work/video/fgr.avi",      # [可选项] 输出前景预测
 		output_video_mbps=4,                         # 若导出视频，提供视频码率

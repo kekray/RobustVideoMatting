@@ -33,6 +33,7 @@ def convert_video(model,
                   downsample_ratio: Optional[float] = None,
                   output_type: str = 'video',
                   output_background: Optional[str] = 'default',
+                  output_background_image: Optional[str] = None,
                   output_composition: Optional[str] = None,
                   output_alpha: Optional[str] = None,
                   output_foreground: Optional[str] = None,
@@ -51,6 +52,7 @@ def convert_video(model,
         downsample_ratio: The model's downsample_ratio hyperparameter. If not provided, model automatically set one.
         output_type: Options: ["video", "png_sequence"].
         output_background: Options: ["default", "green", "white", "image"].
+        output_background_image: Options: ["None", "path_of_image_for_output_background"]
         output_composition:
             The composition output path. File path if output_type == 'video'. Directory path if output_type == 'png_sequence'.
             If output_type == 'video', the composition has green screen background.
@@ -173,7 +175,10 @@ def convert_video(model,
                             transforms.Resize(size=(h, w)),
                             transforms.ToTensor()
                         ])
-                        img = Image.open("work/background/background1.jpg")
+                        if output_background_image is not None:
+                            img = Image.open(output_background_image)
+                        else:
+                            img = Image.open("work/background/background1.jpg")
                         bgr = loader(img).to(device, dtype, non_blocking=True)
                         com = fgr * pha + bgr * (1 - pha)
                     elif output_background == 'default' and output_type == 'png_sequence':
